@@ -40,20 +40,20 @@
 							<div class="flex items-center justify-between border-b-2 border-gray-200 mb-6">
 								<div>
 									<button
+										id="fuzz-params-tab"
+										class="px-4 py-2 font-medium"
+										:class="activeSubTab==='fuzz' ? 'text-blue-700 border-b-2 border-blue-700' : 'text-gray-500'"
+										@click="activeSubTab='fuzz'"
+									>
+										模糊测试
+									</button>
+									<button
 										id="db-params-tab"
 										class="px-4 py-2 font-medium"
 										:class="activeSubTab==='db' ? 'text-blue-700 border-b-2 border-blue-700' : 'text-gray-500'"
 										@click="activeSubTab='db'"
 									>
 										数据库参数
-									</button>
-									<button
-										id="fuzz-params-tab"
-										class="px-4 py-2 font-medium"
-										:class="activeSubTab==='fuzz' ? 'text-blue-700 border-b-2 border-blue-700' : 'text-gray-500'"
-										@click="activeSubTab='fuzz'"
-									>
-										模糊测试参数
 									</button>
 								</div>
 							</div>
@@ -68,6 +68,12 @@
 								<div>
 									<!-- 模糊测试参数操作按钮 -->
 									<div class="flex gap-2 mb-4 flex-wrap">
+										<button
+											class="py-2 px-4 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
+											@click="saveConfigToDatabase"
+										>
+											保存配置
+										</button>
 										<button
 											class="py-2 px-4 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
 											@click="showSchemeDialog = true"
@@ -623,7 +629,7 @@ watch(activePanel, (newVal) => {
   localStorage.setItem('activePanel', newVal)
 }, { immediate: true }) // immediate: true 确保初始状态也会保存
 
-const activeSubTab = ref<'db'|'fuzz'>('db')
+const activeSubTab = ref<'db'|'fuzz'>('fuzz')
 
 // 👇 新增：页码输入后校验（防止输入超出范围）
 const handlePageChange = () => {
@@ -909,6 +915,57 @@ const saveAsDefaultConfig = async () => {
   }
 }
 
+// 保存配置到数据库
+const saveConfigToDatabase = async () => {
+  // 验证输入合法性
+  if (!validateFuzzConfig(form)) {
+    alert('输入不合法，请检查参数设置！')
+    return
+  }
+
+  savingConfig.value = true
+  try {
+    await fuzzConfigApi.saveDefaultConfig(form)
+    showMessage('配置保存成功！', 'success')
+    console.log('配置保存到数据库成功')
+  } catch (err) {
+    console.error('保存配置到数据库失败:', err)
+    showMessage('保存配置失败，请检查网络连接', 'error')
+  } finally {
+    savingConfig.value = false
+  }
+}
+
+// 验证模糊测试配置合法性
+const validateFuzzConfig = (config: any): boolean => {
+  // 检查必需的参数是否存在且有效
+  if (!config.testOracle || config.testOracle.trim() === '') {
+    return false
+  }
+  if (config.randomSeed < -1) {
+    return false
+  }
+  if (config.maxExpressionDepth < 1) {
+    return false
+  }
+  if (config.numQueries < 1) {
+    return false
+  }
+  if (config.maxNumInserts < 1) {
+    return false
+  }
+  if (config.numTries < 1) {
+    return false
+  }
+  if (config.timeoutSeconds < -1) {
+    return false
+  }
+  if (config.maxGeneratedDatabases < -1) {
+    return false
+  }
+  return true
+}
+
 // 重置为系统默认值
 const resetToSystemDefaults = async () => {
   if (!confirm('确定要重置为系统默认值吗？这将清除所有自定义设置。')) {
@@ -1041,7 +1098,7 @@ function initCoverageChart() {
 
 onMounted(async () => {
 	// 初始化
-	activeSubTab.value = 'db'
+	activeSubTab.value = 'fuzz'
 	loadFuzzSchemesFromStorage() // 加载模糊测试参数方案
 	await loadDefaultConfig() // 加载默认配置
 
