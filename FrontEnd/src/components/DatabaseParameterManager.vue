@@ -45,8 +45,8 @@
       
       <!-- 搜索和过滤 -->
       <div class="space-y-4">
-        <!-- 第一行：搜索框 -->
-        <div class="flex items-center space-x-4">
+        <!-- 第一行：搜索框 + 筛选/方案操作 -->
+        <div class="flex items-start space-x-4">
           <div class="flex-1 relative">
             <div class="relative">
               <input
@@ -81,12 +81,16 @@
             </div>
           </div>
           
-          <button
-            @click="clearFilters"
-            class="px-4 py-2 border border-gray-300 rounded hover:bg-gray-100"
-          >
-            清空筛选
-          </button>
+          <div class="flex flex-col space-y-3 w-72">
+            <div class="grid grid-cols-2 gap-2">
+              <button
+                @click="clearFilters"
+                class="w-full py-2 border border-gray-300 rounded hover:bg-gray-100 text-sm"
+              >
+                清空筛选
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- 快速筛选标签 -->
@@ -108,7 +112,7 @@
           </button>
         </div>
 
-        <!-- 第二行：详细筛选选项 -->
+        <!-- 第二行：详细筛选选项 + 操作按钮 -->
         <div class="flex items-center space-x-4">
           <div class="w-48">
             <label class="block text-sm font-medium mb-1">参数类别</label>
@@ -172,6 +176,29 @@
               <option value="true">启用测试 ({{ getTestStatusCount(true) }})</option>
               <option value="false">禁用测试 ({{ getTestStatusCount(false) }})</option>
             </select>
+          </div>
+
+          <!-- 操作按钮：与select元素水平排列 -->
+          <div class="flex items-end space-x-2 ml-auto mt-4">
+            <button
+              @click="openSaveSchemeDialog"
+              class="py-2 px-4 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+            >
+              保存参数方案
+            </button>
+            <button
+              @click="openSchemeListDialog"
+              class="py-2 px-4 border border-gray-400 text-gray-800 rounded hover:bg-gray-100 text-sm"
+            >
+              查看方案
+            </button>
+            <button
+              @click="resetAllParametersToDefault"
+              :disabled="parameters.length === 0 || resetting"
+              class="py-2 px-4 border rounded text-red-600 border-red-400 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+            >
+              {{ resetting ? '重置参数中...' : '重置参数' }}
+            </button>
           </div>
         </div>
       </div>
@@ -377,28 +404,193 @@
       <div class="mt-2 text-gray-600">加载中...</div>
     </div>
 
+    <!-- 参数方案管理弹窗：保存方案 -->
+    <div
+      v-if="saveSchemeDialogVisible"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40"
+    >
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-lg p-6">
+        <h3 class="text-lg font-semibold mb-4">保存当前参数为方案</h3>
+        <p class="text-sm text-gray-600 mb-4">
+          将当前参数列表中的参数默认值和“是否测试”状态保存为一个可复用的方案，仅保存在本地浏览器。
+        </p>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-sm font-medium mb-1">方案名称</label>
+            <input
+              v-model="schemeName"
+              type="text"
+              placeholder="例如：高并发测试方案"
+              class="w-full p-2 border border-gray-300 rounded"
+              maxlength="50"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">方案描述</label>
+            <textarea
+              v-model="schemeDescription"
+              rows="3"
+              placeholder="为该方案写一句简短说明，便于后续识别和选择"
+              class="w-full p-2 border border-gray-300 rounded resize-none"
+              maxlength="200"
+            ></textarea>
+          </div>
+        </div>
+        <div class="mt-6 flex justify-end space-x-3">
+          <button
+            @click="closeSaveSchemeDialog"
+            class="px-4 py-2 border border-gray-300 rounded hover:bg-gray-100"
+          >
+            取消
+          </button>
+          <button
+            @click="confirmSaveScheme"
+            :disabled="savingScheme"
+            class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {{ savingScheme ? '保存中...' : '保存方案' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 参数方案列表弹窗：查看/删除方案 -->
+    <div
+      v-if="schemeListDialogVisible"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40"
+    >
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-3xl p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold">已保存的参数方案</h3>
+          <button
+            @click="closeSchemeListDialog"
+            class="text-gray-500 hover:text-gray-700"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div v-if="schemes.length === 0" class="text-center text-gray-500 py-6">
+          暂无已保存的参数方案，请先在数据库参数页面点击“保存参数方案”创建。
+        </div>
+
+        <div v-else class="max-h-96 overflow-y-auto border border-gray-200 rounded">
+          <table class="min-w-full text-sm">
+            <thead class="bg-gray-100">
+              <tr>
+                <th class="px-4 py-2 text-left border-b">方案名称</th>
+                <th class="px-4 py-2 text-left border-b">描述</th>
+                <th class="px-4 py-2 text-left border-b">创建时间</th>
+                <th class="px-4 py-2 text-center border-b">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="scheme in schemes"
+                :key="scheme.id"
+                class="hover:bg-gray-50"
+              >
+                <td class="px-4 py-2 border-b font-medium">
+                  {{ scheme.name }}
+                </td>
+                <td class="px-4 py-2 border-b max-w-xs truncate" :title="scheme.description">
+                  {{ scheme.description || '（无描述）' }}
+                </td>
+                <td class="px-4 py-2 border-b">
+                  {{ formatSchemeTime(scheme.createdAt) }}
+                </td>
+                <td class="px-4 py-2 border-b text-center space-x-2">
+                  <button
+                    @click="viewSchemeDescription(scheme)"
+                    class="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100"
+                  >
+                    查看描述
+                  </button>
+                  <button
+                    @click="applyScheme(scheme)"
+                    :disabled="applyingSchemeId === scheme.id"
+                    class="px-2 py-1 text-xs border border-green-500 text-green-600 rounded hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {{ applyingSchemeId === scheme.id ? '应用中...' : '应用方案' }}
+                  </button>
+                  <button
+                    @click="deleteScheme(scheme)"
+                    class="px-2 py-1 text-xs border border-red-400 text-red-600 rounded hover:bg-red-50"
+                  >
+                    删除方案
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 参数方案详情弹窗 -->
+    <div
+      v-if="schemeDetail"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40"
+    >
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-lg p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold">方案详情</h3>
+          <button
+            @click="closeSchemeDetailDialog"
+            class="text-gray-500 hover:text-gray-700"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div class="space-y-3 text-sm text-gray-700">
+          <div class="flex justify-between">
+            <span class="font-medium text-gray-900">方案名称</span>
+            <span>{{ schemeDetail?.name }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="font-medium text-gray-900">参数数量</span>
+            <span>{{ schemeDetail?.parameters.length }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="font-medium text-gray-900">创建时间</span>
+            <span>{{ formatSchemeTime(schemeDetail?.createdAt || '') }}</span>
+          </div>
+          <div>
+            <span class="block font-medium text-gray-900 mb-1">方案描述</span>
+            <div class="p-3 rounded border border-gray-200 bg-gray-50 text-gray-600 leading-relaxed whitespace-pre-wrap">
+              {{ schemeDetail?.description || '（无描述）' }}
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-6 flex justify-end">
+          <button
+            @click="closeSchemeDetailDialog"
+            class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            我知道了
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- 参数表格 -->
     <div v-else-if="parameters.length > 0" class="bg-white rounded-lg shadow-md overflow-hidden">
-      <div class="overflow-x-auto">
-        <table class="min-w-full border-2 border-table-border">
+      <div class="overflow-x-auto table-container">
+        <table class="min-w-full">
           <thead>
             <tr class="bg-gray-100">
-              <th class="py-3 px-4 border border-table-border text-left">
-                <input 
-                  type="checkbox" 
-                  :checked="allSelected"
-                  @change="toggleSelectAll"
-                  class="mr-2"
-                />
+              <th class="py-3 px-4 border border-gray-300 text-left">
                 参数名
               </th>
-              <th class="py-3 px-4 border border-table-border text-left">描述</th>
-              <th class="py-3 px-4 border border-table-border text-left">类别</th>
-              <th class="py-3 px-4 border border-table-border text-left">设置范围</th>
-              <th class="py-3 px-4 border border-table-border text-left">约束信息</th>
-              <th class="py-3 px-4 border border-table-border text-left">默认值</th>
-              <th class="py-3 px-4 border border-table-border text-center">是否测试</th>
-              <th class="py-3 px-4 border border-table-border text-center">操作</th>
+              <th class="py-3 px-4 border border-gray-300 text-left">描述</th>
+              <th class="py-3 px-4 border border-gray-300 text-left">类别</th>
+              <th class="py-3 px-4 border border-gray-300 text-left">设置范围</th>
+              <th class="py-3 px-4 border border-gray-300 text-left">约束信息</th>
+              <th class="py-3 px-4 border border-gray-300 text-left">默认值</th>
+              <th class="py-3 px-4 border border-gray-300 text-center">是否测试</th>
+              <th class="py-3 px-4 border border-gray-300 text-center">操作</th>
             </tr>
           </thead>
           <tbody>
@@ -410,23 +602,15 @@
               @mouseleave="hoveredParam = null"
             >
               <!-- 参数名 -->
-              <td class="py-3 px-4 border border-table-border">
-                <div class="flex items-center">
-                  <input 
-                    type="checkbox" 
-                    v-model="param.isSelected"
-                    @change="onParameterSelectionChange(param)"
-                    class="mr-2"
-                  />
-                  <div class="flex flex-col">
-                    <span class="font-medium">{{ param.paramName }}</span>
-                    <span class="text-xs text-gray-500">{{ param.paramType }}</span>
-                  </div>
+              <td class="py-3 px-4 border border-gray-300">
+                <div class="flex flex-col">
+                  <span class="font-medium">{{ param.paramName }}</span>
+                  <span class="text-xs text-gray-500">{{ param.paramType }}</span>
                 </div>
               </td>
               
               <!-- 描述 -->
-              <td class="py-3 px-4 border border-table-border">
+              <td class="py-3 px-4 border border-gray-300">
                 <div class="max-w-xs">
                   <span 
                     class="text-sm text-gray-600 cursor-help" 
@@ -438,14 +622,14 @@
               </td>
               
               <!-- 类别 -->
-              <td class="py-3 px-4 border border-table-border">
+              <td class="py-3 px-4 border border-gray-300">
                 <span class="inline-block px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
                   {{ param.category }}
                 </span>
               </td>
 
               <!-- 设置范围 -->
-              <td class="py-3 px-4 border border-table-border">
+              <td class="py-3 px-4 border border-gray-300">
                 <span 
                   v-if="param.valueRange"
                   class="inline-block px-2 py-1 text-xs rounded"
@@ -458,7 +642,7 @@
               </td>
 
               <!-- 约束信息 -->
-              <td class="py-3 px-4 border border-table-border">
+              <td class="py-3 px-4 border border-gray-300">
                 <div class="flex flex-wrap gap-1">
                   <!-- 候选值标识 -->
                   <span 
@@ -491,7 +675,7 @@
               </td>
               
               <!-- 默认值编辑器 -->
-              <td class="py-3 px-4 border border-table-border">
+              <td class="py-3 px-4 border border-gray-300">
                 <ParameterEditor
                   :parameter="param"
                   :always-editing="false"
@@ -501,7 +685,7 @@
               </td>
               
               <!-- 是否测试 -->
-              <td class="py-3 px-4 border border-table-border text-center">
+              <td class="py-3 px-4 border border-gray-300 text-center">
                 <input 
                   type="checkbox" 
                   v-model="param.isTestDefault"
@@ -511,7 +695,7 @@
               </td>
               
               <!-- 操作 -->
-              <td class="py-3 px-4 border border-table-border text-center">
+              <td class="py-3 px-4 border border-gray-300 text-center">
                 <div class="flex items-center justify-center space-x-2">
                   <button
                     @click="showParameterDetails(param)"
@@ -574,7 +758,8 @@ import type {
   ParameterItem, 
   DatabaseConfig, 
   ConnectionTestResult,
-  ImportResult 
+  ImportResult,
+  UpdateParameterRequest
 } from '../types'
 
 // 响应式数据
@@ -622,13 +807,47 @@ const totalElements = ref(0)
 const loading = ref(false)
 const testing = ref(false)
 const importing = ref(false)
+const resetting = ref(false)
+
+// 记录首次从后端加载时的“默认状态”，用于一键恢复
+const originalParameterSnapshot = ref<Record<number, { defaultValue: string; isTestDefault: boolean }>>({})
+
+// 参数方案类型定义（仅在前端本地存储）
+interface ParameterSchemeItem {
+  id: number
+  defaultValue: string
+  isTestDefault: boolean
+}
+
+interface ParameterScheme {
+  id: string
+  name: string
+  description: string
+  createdAt: string
+  parameters: ParameterSchemeItem[]
+}
+
+const SCHEME_STORAGE_KEY = 'db-parameter-schemes'
+
+// 方案管理相关状态
+const schemes = ref<ParameterScheme[]>([])
+const schemeName = ref('')
+const schemeDescription = ref('')
+const savingScheme = ref(false)
+const applyingSchemeId = ref<string | null>(null)
+const deletingScheme = ref(false)
+
+// 弹窗显示状态
+const saveSchemeDialogVisible = ref(false)
+const schemeListDialogVisible = ref(false)
+const schemeDetail = ref<ParameterScheme | null>(null)
+const closeSchemeDetailDialog = () => {
+  schemeDetail.value = null
+}
 
 const message = ref({ text: '', type: 'info' as 'success' | 'error' | 'info' })
 
 // 计算属性
-const allSelected = computed(() => {
-  return parameters.value.length > 0 && parameters.value.every(p => p.isSelected)
-})
 
 const messageClass = computed(() => {
   const baseClass = 'transition-all duration-300'
@@ -774,20 +993,34 @@ const loadValueRanges = async () => {
   }
 }
 
+// 保存一份参数“默认状态”快照
+const takeParameterSnapshot = (list: ParameterItem[]) => {
+  const snapshot: Record<number, { defaultValue: string; isTestDefault: boolean }> = {}
+  list.forEach((p) => {
+    snapshot[p.id] = {
+      defaultValue: p.defaultValue,
+      isTestDefault: p.isTestDefault,
+    }
+  })
+  originalParameterSnapshot.value = snapshot
+}
+
 // 加载参数列表
 const loadParameters = async () => {
   loading.value = true
   try {
-    const response = await parameterApi.getEnhancedParameters({
+    const response = await parameterApi.getParameters({
       page: currentPage.value,
       size: pageSize.value,
       search: searchKeyword.value || undefined,
       category: selectedCategory.value || undefined,
-      valueRange: selectedValueRange.value || undefined
     })
     
     // 根据约束类型筛选
     let filteredContent = response.content
+
+    // 每次从后端获取最新数据后，更新“默认状态”快照
+    takeParameterSnapshot(response.content)
     if (selectedConstraintType.value) {
       filteredContent = filterByConstraintType(response.content, selectedConstraintType.value)
     }
@@ -807,6 +1040,221 @@ const loadParameters = async () => {
     showMessage('加载参数失败', 'error')
   } finally {
     loading.value = false
+  }
+}
+
+// 本地加载/保存方案列表
+const loadSchemesFromStorage = () => {
+  try {
+    const raw = localStorage.getItem(SCHEME_STORAGE_KEY)
+    if (!raw) {
+      schemes.value = []
+      return
+    }
+    const parsed = JSON.parse(raw) as ParameterScheme[]
+    schemes.value = Array.isArray(parsed) ? parsed : []
+  } catch {
+    schemes.value = []
+  }
+}
+
+const saveSchemesToStorage = () => {
+  localStorage.setItem(SCHEME_STORAGE_KEY, JSON.stringify(schemes.value))
+}
+
+// 保存当前参数为一个新方案
+const saveCurrentParametersAsScheme = async (): Promise<boolean> => {
+  if (!schemeName.value.trim()) {
+    showMessage('请先填写方案名称', 'info')
+    return false
+  }
+
+  savingScheme.value = true
+  try {
+    // 保存“当前参数列表”作为方案（受当前搜索/筛选影响）
+    const allParams = parameters.value
+    if (!allParams.length) {
+      showMessage('当前没有可保存的参数', 'info')
+      return false
+    }
+
+    const items: ParameterSchemeItem[] = allParams.map((p) => ({
+      id: p.id,
+      defaultValue: p.defaultValue,
+      isTestDefault: p.isTestDefault,
+    }))
+
+    const now = new Date()
+    const newScheme: ParameterScheme = {
+      id: `${now.getTime()}-${Math.random().toString(36).slice(2, 8)}`,
+      name: schemeName.value.trim(),
+      description: schemeDescription.value.trim(),
+      createdAt: now.toISOString(),
+      parameters: items,
+    }
+
+    schemes.value.unshift(newScheme)
+    saveSchemesToStorage()
+    showMessage('参数方案已保存（仅当前浏览器可见）', 'success')
+    schemeName.value = ''
+    schemeDescription.value = ''
+    return true
+  } catch (error) {
+    console.error('保存参数方案失败:', error)
+    showMessage('保存参数方案失败', 'error')
+    return false
+  } finally {
+    savingScheme.value = false
+  }
+}
+
+// 打开/关闭保存方案弹窗
+const openSaveSchemeDialog = () => {
+  schemeName.value = ''
+  schemeDescription.value = ''
+  saveSchemeDialogVisible.value = true
+}
+
+const closeSaveSchemeDialog = () => {
+  saveSchemeDialogVisible.value = false
+}
+
+// “保存方案”弹窗中的确认按钮逻辑
+const confirmSaveScheme = async () => {
+  const success = await saveCurrentParametersAsScheme()
+  if (success) {
+    saveSchemeDialogVisible.value = false
+  }
+}
+
+// 打开/关闭方案列表弹窗
+const openSchemeListDialog = () => {
+  schemeListDialogVisible.value = true
+}
+
+const closeSchemeListDialog = () => {
+  schemeListDialogVisible.value = false
+}
+
+// 在弹窗中“查看描述”
+const viewSchemeDescription = (scheme: ParameterScheme) => {
+  schemeDetail.value = scheme
+}
+
+// 在弹窗中删除指定方案
+const deleteScheme = (scheme: ParameterScheme) => {
+  if (!confirm(`确定要删除参数方案「${scheme.name}」吗？删除后无法恢复。`)) {
+    return
+  }
+
+  deletingScheme.value = true
+  try {
+    schemes.value = schemes.value.filter((s) => s.id !== scheme.id)
+    saveSchemesToStorage()
+    if (schemeDetail.value?.id === scheme.id) {
+      schemeDetail.value = null
+    }
+    showMessage('方案已删除', 'success')
+  } finally {
+    deletingScheme.value = false
+  }
+}
+
+// 方案时间格式化
+const formatSchemeTime = (isoTime: string): string => {
+  if (!isoTime) return '-'
+  try {
+    const d = new Date(isoTime)
+    return d.toLocaleString('zh-CN')
+  } catch {
+    return isoTime
+  }
+}
+
+// 应用指定方案
+const applyScheme = async (scheme: ParameterScheme) => {
+  if (!scheme.parameters.length) {
+    showMessage('该方案暂无参数，无法应用', 'info')
+    return
+  }
+
+  if (!confirm(`确定要应用参数方案「${scheme.name}」吗？这将覆盖当前所有参数的默认值与是否测试状态。`)) {
+    return
+  }
+
+  const requests: UpdateParameterRequest[] = scheme.parameters.map((item) => ({
+    id: item.id,
+    defaultValue: item.defaultValue,
+    isTestDefault: item.isTestDefault,
+  }))
+
+  applyingSchemeId.value = scheme.id
+  try {
+    await parameterApi.batchUpdateParameters(requests)
+    showMessage(`参数方案「${scheme.name}」已应用`, 'success')
+    await loadParameters()
+    schemeListDialogVisible.value = false
+  } catch (error) {
+    console.error('应用参数方案失败:', error)
+    showMessage('应用参数方案失败', 'error')
+  } finally {
+    applyingSchemeId.value = null
+  }
+}
+
+
+// 一键将当前所有参数恢复到“默认状态”
+const resetAllParametersToDefault = async () => {
+  if (!parameters.value.length) {
+    showMessage('当前没有可重置的参数', 'info')
+    return
+  }
+
+  const snapshot = originalParameterSnapshot.value
+  if (!snapshot || Object.keys(snapshot).length === 0) {
+    showMessage('暂无默认状态快照，无法重置', 'info')
+    return
+  }
+
+  // 构造批量更新请求
+  const requests: UpdateParameterRequest[] = parameters.value
+    .map((param) => {
+      const snap = snapshot[param.id]
+      if (!snap) return null
+      return {
+        id: param.id,
+        defaultValue: snap.defaultValue,
+        isTestDefault: snap.isTestDefault,
+      }
+    })
+    .filter((item): item is UpdateParameterRequest => item !== null)
+
+  if (!requests.length) {
+    showMessage('没有需要重置的参数', 'info')
+    return
+  }
+
+  resetting.value = true
+  try {
+    await parameterApi.batchUpdateParameters(requests)
+
+    // 本地同步为快照中的默认值
+    parameters.value.forEach((param) => {
+      const snap = snapshot[param.id]
+      if (snap) {
+        param.defaultValue = snap.defaultValue
+        param.isTestDefault = snap.isTestDefault
+      }
+    })
+
+    showMessage('参数已恢复为默认状态', 'success')
+    // 重新加载，确保与后端完全一致
+    await loadParameters()
+  } catch (error) {
+    console.error('重置参数失败:', error)
+    showMessage('重置参数失败', 'error')
+  } finally {
+    resetting.value = false
   }
 }
 
@@ -871,7 +1319,7 @@ const updateParameterValue = async (param: ParameterItem, value: string) => {
     
     // 更新本地数据
     param.defaultValue = value
-    showMessage('参数更新成功', 'success')
+    showMessage('默认值编辑成功', 'success')
     
   } catch (error) {
     console.error('更新参数失败:', error)
@@ -896,18 +1344,7 @@ const updateParameterTestStatus = async (param: ParameterItem) => {
   }
 }
 
-// 参数选择变化
-const onParameterSelectionChange = (param: ParameterItem) => {
-  // 可以在这里添加选择变化的逻辑
-}
 
-// 全选/取消全选
-const toggleSelectAll = () => {
-  const newState = !allSelected.value
-  parameters.value.forEach(param => {
-    param.isSelected = newState
-  })
-}
 
 // 删除参数
 const deleteParameter = async (param: ParameterItem) => {
@@ -1253,11 +1690,18 @@ const formatDateTime = (dateTimeStr: string): string => {
 // 页面变化
 const onPageChange = (page: number) => {
   currentPage.value = page
+  // 新增：清空搜索建议，避免分页时弹窗干扰
+  showSuggestions.value = false
+  searchSuggestions.value = []
+  // 原有逻辑不变
   loadParameters()
 }
 
 // 组件挂载
 onMounted(async () => {
+  // 先从本地加载已保存的参数方案
+  loadSchemesFromStorage()
+
   await Promise.all([
     loadDatabaseConfigs(),
     loadCategories(),

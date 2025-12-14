@@ -16,10 +16,10 @@
           编辑
         </button>
         <div v-else class="edit-actions">
-          <button @click="handleSave" class="save-btn" :disabled="!hasChanges">
+          <button v-if="!props.autoSave || !hasCandidateValues" @click="handleSave" class="save-btn" :disabled="!hasChanges">
             保存
           </button>
-          <button @click="handleCancel" class="cancel-btn">
+          <button v-if="!props.autoSave || !hasCandidateValues" @click="handleCancel" class="cancel-btn">
             取消
           </button>
         </div>
@@ -53,6 +53,7 @@
         :validate-value="validateValue"
         @change="onValueChange"
         @validate="onValidationResult"
+        @save="onCandidateValueSave"
       />
 
       <!-- 数值输入（整数类型） -->
@@ -351,10 +352,21 @@ const onValueChange = () => {
   const result = validateValue(String(editValue.value))
   validationResult.value = result
   emit('change', String(editValue.value))
+
+  // 如果启用了自动保存且有候选值，当值发生变化时自动保存
+  if (props.autoSave && hasCandidateValues.value && hasChanges.value) {
+    handleSave()
+  }
 }
 
 const onValidationResult = (result: ValidationResult) => {
   validationResult.value = result
+}
+
+const onCandidateValueSave = async (value: string) => {
+  // 直接保存选中的候选值
+  editValue.value = value
+  await handleSave()
 }
 
 const onInputBlur = () => {
@@ -389,24 +401,19 @@ const handleSave = async () => {
   try {
     saveStatus.value = 'saving'
     emit('save', value)
-    
+
     // 更新原始值
     originalValue.value = value
-    
-    // 模拟保存成功（实际应该等待父组件的保存结果）
-    setTimeout(() => {
-      saveStatus.value = 'success'
-      if (!props.alwaysEditing) {
-        isEditing.value = false
-      }
-      setTimeout(() => {
-        saveStatus.value = null
-      }, 2000)
-    }, 500)
-    
+
+    // 立即退出编辑模式（实际的保存结果由父组件处理）
+    if (!props.alwaysEditing) {
+      isEditing.value = false
+    }
+
   } catch (error) {
+    console.error('保存失败:', error)
     saveStatus.value = 'error'
-    saveMessage.value = error instanceof Error ? error.message : '保存失败'
+    saveMessage.value = '保存失败'
     setTimeout(() => {
       saveStatus.value = null
     }, 3000)

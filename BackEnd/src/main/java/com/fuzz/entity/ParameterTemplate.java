@@ -78,6 +78,15 @@ public class ParameterTemplate {
     @Column(name = "update_time")
     private LocalDateTime updateTime;
 
+    // 权重字段（假设为整数类型，可根据实际需求调整类型）
+    @Column(name = "weight")
+    private Double weight;
+
+    // 覆盖率字段（假设为百分比的小数形式，如0.95表示95%）
+    @Column(name = "coverage")
+    private Double coverage;
+
+
     // 构造函数
     public ParameterTemplate() {
     }
@@ -203,7 +212,22 @@ public class ParameterTemplate {
     public void setValueRange(String valueRange) {
         this.valueRange = valueRange;
     }
+    
+    public Double getWeight() {
+    return weight;
+    }
 
+    public void setWeight(Double weight) {
+    this.weight = weight;
+    }
+
+    public Double getCoverage() {
+    return coverage;
+    }
+
+    public void setCoverage(Double coverage) {
+    this.coverage = coverage;
+    }
     /**
      * 获取候选取值列表
      * @return 候选取值列表，如果解析失败则返回空列表

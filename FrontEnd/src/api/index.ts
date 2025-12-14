@@ -86,3 +86,9 @@ export const api = {
     delete: <T>(endpoint: string) =>
         apiRequest<T>(endpoint, { method: 'DELETE' }),
 }
+
+// 导出所有API模块
+export { parameterApi } from './parameterApi'
+export { databaseConfigApi } from './databaseConfigApi'
+export { bugReportApi } from './bugReportApi'
+export { fuzzConfigApi } from './fuzzConfigApi'

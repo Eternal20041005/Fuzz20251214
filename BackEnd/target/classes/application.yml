@@ -26,7 +26,7 @@ spring:
   
   # 数据库配置
   datasource:
-    url: jdbc:mysql://localhost:3306/fuzz_testing_db?useUnicode=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=Asia/Shanghai
+    url: jdbc:mysql://localhost:3306/fuzz_testing_db?useUnicode=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
     username: root
     password: 123456
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -53,6 +53,7 @@ spring:
         dialect: org.hibernate.dialect.MySQLDialect
         format_sql: true
         use_sql_comments: true
+        physical_naming_strategy: org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy
         # 性能优化配置
         jdbc:
           batch_size: 20

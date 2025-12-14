@@ -3,20 +3,27 @@ package com.fuzz.controller;
 import com.fuzz.dto.*;
 import com.fuzz.service.ParameterConstraintValidator.ValidationResult;
 import com.fuzz.service.ParameterService;
+import com.fuzz.entity.ParameterTemplate;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 
 import java.util.List;
-
+import java.util.Map;
+import java.util.HashMap;
 /**
  * 参数管理控制器
  */
 @RestController
 @RequestMapping("/parameters")
+@CrossOrigin(origins = "http://localhost:5173", allowCredentials = "true")
 public class ParameterController {
     
     private static final Logger logger = LoggerFactory.getLogger(ParameterController.class);
@@ -235,4 +242,66 @@ public class ParameterController {
         
         return ResponseEntity.ok(response);
     }
+        // ===================== 新增：权重相关接口 =====================
+    /**
+     * 1. 手动更新参数权重（前端手动设置权重）
+     * 接口地址：PUT /parameters/{id}/weight
+     * 请求参数：weight=5.5（0-10之间）
+     */
+    @PutMapping("/{id}/weight")
+    public ResponseEntity<ParameterTemplateDto> updateParameterWeight(
+            @PathVariable Long id,  // 参数ID（从URL中取）
+            @RequestParam Double weight) {  // 新权重（从请求参数中取）
+        
+        logger.info("手动更新参数权重: id={}, weight={}", id, weight);
+        ParameterTemplateDto updatedDto = parameterService.updateParameterWeight(id, weight);
+        return ResponseEntity.ok(updatedDto); // 返回更新后的参数详情
+    }
+
+    /**
+     * 2. 上传代码覆盖率并自动调整权重（核心接口）
+     * 接口地址：POST /parameters/{id}/coverage
+     * 请求参数：coverage=85.5（0-100之间，百分比）
+     */
+    @PostMapping("/{id}/coverage")
+    public ResponseEntity<Void> setCoverageAndAdjustWeight(
+            @PathVariable Long id,  // 参数ID（从URL中取）
+            @RequestParam Double coverage) {  // 代码覆盖率（从请求参数中取）
+        
+        logger.info("上传覆盖率并自动调整权重: id={}, coverage={}%", id, coverage);
+        parameterService.adjustWeightByCoverage(id, coverage);
+        return ResponseEntity.noContent().build(); // 成功返回204状态码（无内容）
+    }
+
+    /**
+     * 3. 获取参数的权重和覆盖率信息（给前端展示用）
+     * 接口地址：GET /parameters/{id}/weight-coverage
+     * 返回结果：{"weight":5.5, "coverage":85.5}
+     */
+  @GetMapping("/{id}/weight-coverage")
+  public ResponseEntity<Map<String, Double>> getParameterWeightAndCoverage(@PathVariable Long id) {
+    logger.info("获取参数权重和覆盖率: id={}", id);
+    // 关键：查询参数记录
+    ParameterTemplate param = parameterService.getById(id);
+    if (param == null) {
+        // 若查询不到数据，返回 404 提示（避免返回空 {}）
+        return ResponseEntity.notFound().build();
+    }
+    // 关键：封装 weight 和 coverage 字段，确保 key 正确
+    Map<String, Double> result = new HashMap<>();
+    result.put("weight", param.getWeight()); // 对应实体类的 weight 字段
+    result.put("coverage", param.getCoverage()); // 对应实体类的 coverage 字段
+    return ResponseEntity.ok(result);
+}
+/**
+ * 4. 获取所有参数列表（无分页，给前端权重调整区展示用）
+ * 接口地址：GET /parameters/all
+ * 返回结果：[{id:1, paramName:"xxx", weight:1.0, coverage:0.0}, ...]
+ */
+@GetMapping("/all")
+public ResponseEntity<List<ParameterTemplateDto>> getAllParameters() {
+    logger.info("获取所有参数列表（无分页）");
+    List<ParameterTemplateDto> allParams = parameterService.getAllParameters();
+    return ResponseEntity.ok(allParams);
+}
 }

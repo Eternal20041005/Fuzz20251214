@@ -62,7 +62,7 @@ export const parameterApi = {
 
     // 批量删除参数
     batchDeleteParameters(ids: number[]): Promise<void> {
-        return api.delete('/parameters/batch', { data: ids })
+        return api.delete('/parameters/batch')
     },
 
     // 根据参数名获取参数详情

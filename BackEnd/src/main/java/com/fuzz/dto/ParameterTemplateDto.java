@@ -18,7 +18,7 @@ public class ParameterTemplateDto {
     private String defaultValue;
     private String currentValue; // 当前数据库中的实际值
     private ParameterType paramType;
-    private Boolean isSelected; // 是否被选中进行测试
+
     private Boolean isTestDefault;
     private String minValue;
     private String maxValue;
@@ -28,6 +28,8 @@ public class ParameterTemplateDto {
     private ParameterConstraintDto constraints; // 约束信息
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
+    private Double weight;
+    private Double coverage;
     
     public ParameterTemplateDto() {
     }
@@ -89,13 +91,7 @@ public class ParameterTemplateDto {
         this.paramType = paramType;
     }
     
-    public Boolean getIsSelected() {
-        return isSelected;
-    }
-    
-    public void setIsSelected(Boolean isSelected) {
-        this.isSelected = isSelected;
-    }
+
     
     public Boolean getIsTestDefault() {
         return isTestDefault;
@@ -253,5 +249,21 @@ public class ParameterTemplateDto {
     
     public void setUpdateTime(LocalDateTime updateTime) {
         this.updateTime = updateTime;
+    }
+    public Double getWeight() {
+    return weight;
+    }
+
+    public void setWeight(Double weight) {
+    this.weight = weight;
+    }
+
+    // 👇 覆盖率字段的 Getter/Setter
+    public Double getCoverage() {
+    return coverage;
+    }
+
+    public void setCoverage(Double coverage) {
+    this.coverage = coverage;
     }
 }

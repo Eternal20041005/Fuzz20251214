@@ -166,6 +166,7 @@ interface Emits {
   (e: 'update:modelValue', value: string | string[]): void
   (e: 'change', value: string | string[]): void
   (e: 'validate', result: { valid: boolean; message?: string }): void
+  (e: 'save', value: string): void
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -269,10 +270,11 @@ const updateValidation = (value: string) => {
 
 const selectValue = (value: string) => {
   if (props.disabled) return
-  
+
   selectedValue.value = value
   emit('update:modelValue', value)
   emit('change', value)
+  emit('save', value) // 添加保存事件
   updateValidation(value)
 }
 
@@ -282,6 +284,8 @@ const onSelectionChange = () => {
     selectedValue.value = ''
   } else {
     selectValue(selectedValue.value)
+    // 立即触发保存
+    emit('save', selectedValue.value)
   }
 }
 

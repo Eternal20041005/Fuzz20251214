@@ -8,7 +8,6 @@ export interface ParameterItem {
     defaultValue: string
     currentValue?: string
     paramType: 'INTEGER' | 'BOOLEAN' | 'STRING' | 'DECIMAL'
-    isSelected: boolean
     isTestDefault: boolean
     minValue?: string
     maxValue?: string
@@ -127,4 +126,86 @@ export interface ParameterStats {
         withBoth: number
         withNone: number
     }
+}
+
+// Bug报告相关类型定义
+export interface BugReportItem {
+    id: number
+    bugType: '崩溃' | '逻辑'
+    targetDatabase: string // 'MySQL' | 'PostgreSQL' | 'Oracle' | 'SQL Server'
+    oracleType: 'TLP' | 'RBR' | 'CBR'
+    testTime: string
+    testCase: string
+    errorMessage?: string
+    formattedParameterSettings: string
+    parameterSettings: Record<string, string>
+    createdAt: string
+    updatedAt: string
+}
+
+export interface CreateBugReportRequest {
+    bugType: string
+    targetDatabase: string
+    oracleType: string
+    testCase: string
+    parameterSettings: Record<string, string>
+    errorMessage?: string
+}
+
+export interface UpdateBugReportRequest extends CreateBugReportRequest {
+    // 继承所有字段
+}
+
+export interface BugStatistics {
+    totalCount: number
+    byType: Record<string, number>
+    byDatabase: Record<string, number>
+}
+
+export interface PagedBugReports {
+    content: BugReportItem[]
+    pageable: {
+        pageNumber: number
+        pageSize: number
+        sort: any
+        offset: number
+        paged: boolean
+        unpaged: boolean
+    }
+    totalPages: number
+    totalElements: number
+    last: boolean
+    first: boolean
+    numberOfElements: number
+    size: number
+    number: number
+    sort: any
+    empty: boolean
+}
+
+// 模糊测试配置相关类型定义
+export interface FuzzTestConfig {
+    id?: number
+    configName: string
+    description?: string
+    testOracle: string
+    randomSeed: number
+    maxExpressionDepth: number
+    numQueries: number
+    maxNumInserts: number
+    numTries: number
+    timeoutSeconds: number
+    maxGeneratedDatabases: number
+    username?: string
+    password?: string
+    host?: string
+    port?: number
+    createdAt?: string
+    updatedAt?: string
+}
+
+export interface CreateConfigRequest {
+    configName: string
+    description?: string
+    parameters: Record<string, any>
 }

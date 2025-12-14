@@ -26,7 +26,10 @@ import org.springframework.util.StringUtils;
 
 import java.util.*;
 import java.util.stream.Collectors;
-
+import java.util.HashMap;
+import java.util.Map;
+import java.lang.IllegalArgumentException;
+import java.util.List;
 /**
  * 参数管理服务实现类
  */
@@ -356,7 +359,7 @@ public class ParameterServiceImpl implements ParameterService {
      */
     private ParameterTemplateDto convertToDto(ParameterTemplate entity) {
         ParameterTemplateDto dto = parameterTemplateMapper.toDto(entity);
-        dto.setIsSelected(entity.getIsTestDefault()); // 默认选中状态等于测试默认状态
+
         return dto;
     }
     
@@ -385,4 +388,77 @@ public class ParameterServiceImpl implements ParameterService {
             }
         }
     }
+        // ===================== 新增：权重相关方法实现 =====================
+    @Override
+    public ParameterTemplateDto updateParameterWeight(Long id, Double weight) {
+        // 1. 校验权重范围（必须在0-10之间，否则报错）
+        if (weight < 0 || weight > 10) {
+            throw new IllegalArgumentException("权重必须在0-10之间！");
+        }
+
+        // 2. 根据ID查询参数实体（从数据库拿数据）
+        ParameterTemplate param = parameterTemplateRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("参数不存在，ID：" + id));
+
+        // 3. 设置新权重，并保存到数据库
+        param.setWeight(weight);
+        ParameterTemplate updatedParam = parameterTemplateRepository.save(param);
+
+        // 4. 把实体转换为DTO（给前端返回）
+        return convertToDto(updatedParam);
+    }
+
+    @Override
+    public void adjustWeightByCoverage(Long paramId, Double coverage) {
+        // 1. 校验覆盖率范围（必须在0-100之间，百分比）
+        if (coverage < 0 || coverage > 100) {
+            throw new IllegalArgumentException("覆盖率必须在0-100之间（百分比）！");
+        }
+
+        // 2. 查询参数实体
+        ParameterTemplate param = parameterTemplateRepository.findById(paramId)
+                .orElseThrow(() -> new RuntimeException("参数不存在，ID：" + paramId));
+
+        // 3. 核心逻辑：根据覆盖率计算新权重（可按需修改公式）
+        // 公式示例：权重 = 覆盖率 / 10 → 100%覆盖率对应10.0权重，50%对应5.0权重
+        Double newWeight = coverage / 10.0;
+
+        // 4. 限制权重在0-10之间（防止异常值）
+        newWeight = Math.max(0.0, Math.min(10.0, newWeight));
+
+        // 5. 更新参数的覆盖率和权重，保存到数据库（updateTime会自动刷新）
+        param.setCoverage(coverage);
+        param.setWeight(newWeight);
+        parameterTemplateRepository.save(param);
+    }
+
+    @Override
+    public Map<String, Double> getParameterWeightAndCoverage(Long id) {
+        // 1. 查询参数DTO（复用已有的getParameterById方法）
+        ParameterTemplateDto paramDto = getParameterById(id);
+
+        // 2. 封装权重和覆盖率到Map（给前端返回）
+        Map<String, Double> result = new HashMap<>();
+        result.put("weight", paramDto.getWeight()); // 权重
+        result.put("coverage", paramDto.getCoverage()); // 覆盖率
+
+        return result;
+    }
+
+    @Override
+    public ParameterTemplate getById(Long id) {
+    // 调用 JPA 的 findById 方法查询，为空返回 null
+    return parameterTemplateRepository.findById(id).orElse(null);
+    }
+
+    @Override
+    public List<ParameterTemplateDto> getAllParameters() {
+    // 1. 查询数据库中所有参数实体
+    List<ParameterTemplate> paramEntities = parameterTemplateRepository.findAll();
+    // 2. 转换为 Dto（和分页查询的转换逻辑一致，复用已有的转换方法）
+    return paramEntities.stream()
+            .map(this::convertToDto) // 假设你已有 convertToDto 方法（将实体转为Dto）
+            .collect(Collectors.toList());
 }
+}
+ 

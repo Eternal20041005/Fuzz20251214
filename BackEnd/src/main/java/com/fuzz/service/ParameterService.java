@@ -3,10 +3,11 @@ package com.fuzz.service;
 import com.fuzz.dto.*;
 import com.fuzz.entity.DatabaseConfig;
 import com.fuzz.service.ParameterConstraintValidator.ValidationResult;
+import com.fuzz.entity.ParameterTemplate;
+import com.fuzz.dto.ParameterTemplateDto;
 import org.springframework.data.domain.Page;
 
 import java.util.List;
-
 /**
  * 参数管理服务接口
  */
@@ -119,4 +120,15 @@ public interface ParameterService {
      * @return 分页结果
      */
     PagedResponse<ParameterTemplateDto> getParametersByValueRange(int page, int size, String valueRange);
+    
+    ParameterTemplateDto updateParameterWeight(Long id, Double weight);
+
+    void adjustWeightByCoverage(Long paramId, Double coverage);
+
+    java.util.Map<String, Double> getParameterWeightAndCoverage(Long id);
+
+    // 根据 ID 查询参数模板
+    ParameterTemplate getById(Long id);
+
+    List<ParameterTemplateDto> getAllParameters();
 }
