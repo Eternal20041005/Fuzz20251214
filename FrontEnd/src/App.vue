@@ -129,7 +129,7 @@
 										</div>
 										<div>
 											<label class="block text-sm font-medium mb-2">最大生成数据库数</label>
-											<input type="number" v-model.number="form.maxGeneratedDatabases" min="-1" @keydown.enter="saveAsDefaultConfig" class="w-full p-2 border border-gray-300 rounded" />
+											<input type="number" v-model.number="form.maxGeneratedDatabases" min="1" @keydown.enter="saveAsDefaultConfig" class="w-full p-2 border border-gray-300 rounded" />
 										</div>
 
 									</div>
@@ -656,7 +656,7 @@ const defaultForm = {
 	maxNumInserts: 30,
 	numTries: 100,
 	timeoutSeconds: 30,
-	maxGeneratedDatabases: 0,
+	maxGeneratedDatabases: 1,
 	username: 'sqlancer',
 	password: 'sqlancer',
 	host: '',
@@ -960,7 +960,7 @@ const validateFuzzConfig = (config: any): boolean => {
   if (config.timeoutSeconds < -1) {
     return false
   }
-  if (config.maxGeneratedDatabases < -1) {
+  if (config.maxGeneratedDatabases < 1) {
     return false
   }
   return true
